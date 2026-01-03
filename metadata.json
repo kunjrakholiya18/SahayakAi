@@ -1,0 +1,7 @@
+{
+  "name": "Sahayak AI - Voice Enabled",
+  "description": "A high-performance bilingual (Hindi/English) AI assistant with real-time voice interaction and stunning neural animations.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
