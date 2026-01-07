@@ -10,7 +10,10 @@ export const setManualApiKey = (key: string) => {
   manualApiKey = key;
 };
 
-const getEffectiveApiKey = () => manualApiKey || process.env.API_KEY;
+/**
+ * Gets the manually set API key if available, otherwise falls back to environment variable.
+ */
+export const getEffectiveApiKey = () => manualApiKey || process.env.API_KEY;
 
 /**
  * Generate a language-matched response (English or Hindi) 
