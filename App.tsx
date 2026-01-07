@@ -36,17 +36,17 @@ const App: React.FC = () => {
   
   const [activeCompanions, setActiveCompanions] = useState<CompanionInstance[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('sahayak-theme') as 'light' | 'dark') || 'dark';
-  });
+  
+  // Hardcoded dark theme for cinematic appearance
+  const theme = 'dark';
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    localStorage.setItem('sahayak-theme', theme);
-    document.body.className = theme;
-  }, [theme]);
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.remove('light');
+  }, []);
 
   useEffect(() => {
     if (view === 'chat' && scrollRef.current) {
@@ -77,8 +77,6 @@ Hello ${name}! I am Sahayak. You can talk to me in Hindi or English.`,
     setMessages([]);
     setView('chat');
   };
-
-  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
   const addCompanion = (type: CompanionType) => {
     const newCompanion: CompanionInstance = {
@@ -151,10 +149,19 @@ Hello ${name}! I am Sahayak. You can talk to me in Hindi or English.`,
     }
   };
 
-  if (!currentUser) return <AuthScreen onSuccess={handleAuthSuccess} theme={theme} onToggleTheme={toggleTheme} />;
+  if (!currentUser) return <AuthScreen onSuccess={handleAuthSuccess} theme={theme} />;
 
   return (
-    <div className={`h-screen w-screen flex bg-white dark:bg-black text-slate-900 dark:text-white transition-colors duration-500 overflow-hidden`}>
+    <div className="h-screen w-screen flex bg-[#020617] text-white transition-colors duration-500 overflow-hidden relative">
+      {/* Cinematic Background Layer */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+          <div className="absolute inset-0 bg-dots opacity-[0.05] text-white"></div>
+          {/* Dynamic Glows */}
+          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 blur-[150px] animate-pulse-slow"></div>
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-teal-600/10 blur-[120px] animate-float-slow"></div>
+          <div className="absolute top-[30%] right-[10%] w-[30%] h-[30%] bg-purple-600/5 blur-[100px] animate-pulse-slow delay-1000"></div>
+      </div>
+
       {isLiveMode && <LiveMode userName={currentUser.name} voiceName="Kore" theme={theme} onClose={() => setIsLiveMode(false)} />}
       
       {activeCompanions.map((comp, index) => (
@@ -169,46 +176,62 @@ Hello ${name}! I am Sahayak. You can talk to me in Hindi or English.`,
         />
       ))}
 
-      <div className={`fixed md:relative z-40 h-full w-72 glass-card border-r border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      {/* Sidebar */}
+      <div className={`fixed md:relative z-40 h-full w-72 glass-card border-r border-white/5 bg-black/20 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="flex flex-col h-full p-6">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-lg">S</div>
+          {/* Premium Unique Logo Section */}
+          <div className="flex items-center gap-4 mb-10 group cursor-pointer">
+            <div className="relative w-12 h-12 flex items-center justify-center">
+              {/* Outer Glowing Pulse */}
+              <div className="absolute inset-0 bg-blue-500/30 rounded-2xl blur-md group-hover:scale-125 transition-transform duration-700 animate-pulse"></div>
+              {/* Spinning Ring */}
+              <div className="absolute inset-[-4px] border border-dashed border-teal-500/40 rounded-full animate-[spin_10s_linear_infinite] group-hover:border-teal-400"></div>
+              {/* Main Logo Core */}
+              <div className="relative z-10 w-full h-full rounded-2xl bg-gradient-to-br from-blue-700 via-blue-600 to-teal-500 flex items-center justify-center text-white font-black text-xl shadow-[0_10px_20px_rgba(37,99,235,0.4)] border border-white/20 transition-all duration-500 group-hover:rotate-[360deg] group-hover:scale-110">
+                <span className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">S</span>
+                {/* Shine Effect */}
+                <div className="absolute top-0 left-0 w-full h-1/2 bg-white/20 rounded-t-2xl transform -skew-x-12 -translate-x-1"></div>
+              </div>
+            </div>
             <div className="flex flex-col">
-              <h1 className="text-lg font-black tracking-tight">Sahayak AI</h1>
-              <span className="text-[8px] font-bold text-blue-500 uppercase tracking-widest -mt-1">Neural Node</span>
+              <h1 className="text-xl font-black tracking-tighter text-white group-hover:text-blue-400 transition-colors">Sahayak AI</h1>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></div>
+                <span className="text-[8px] font-bold text-teal-500 uppercase tracking-[0.2em] -mt-0.5">Quantum Core</span>
+              </div>
             </div>
           </div>
           
-          <div className="space-y-3 mb-6 flex-1 overflow-y-auto">
+          <div className="space-y-3 mb-6 flex-1 overflow-y-auto pr-2">
             <button 
               onClick={() => { setView('chat'); setIsSidebarOpen(false); }}
-              className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all text-sm font-bold border ${view === 'chat' ? 'bg-blue-600 text-white border-blue-500 shadow-xl' : 'bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:bg-white/10'}`}
+              className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all text-sm font-bold border ${view === 'chat' ? 'bg-blue-600 text-white border-blue-500 shadow-[0_10px_30px_rgba(37,99,235,0.3)] scale-[1.02]' : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'}`}
             >
               <span className="text-lg">💬</span> Chat Mode
             </button>
 
             <button 
               onClick={() => { setView('magic'); setIsSidebarOpen(false); }}
-              className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all text-sm font-bold border ${view === 'magic' ? 'bg-purple-600 text-white border-purple-500 shadow-xl' : 'bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:bg-white/10'}`}
+              className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all text-sm font-bold border ${view === 'magic' ? 'bg-purple-600 text-white border-purple-500 shadow-[0_10px_30px_rgba(147,51,234,0.3)] scale-[1.02]' : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'}`}
             >
               <span className="text-lg">✨</span> Magic Image
             </button>
 
             <button 
               onClick={() => setIsLiveMode(true)} 
-              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-green-600/10 border border-green-500/20 text-green-600 dark:text-green-400 text-sm font-bold hover:bg-green-600/20 transition-all"
+              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-teal-400 text-sm font-bold hover:bg-teal-500/20 transition-all"
             >
               <span className="text-lg">🎙️</span> Voice Mode
             </button>
 
-            <div className="pt-4 mt-4 border-t border-slate-200 dark:border-white/10">
-                <p className="text-[9px] font-black text-slate-400 dark:text-white/20 uppercase tracking-[0.2em] mb-4">Companions</p>
+            <div className="pt-4 mt-4 border-t border-white/5">
+                <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] mb-4">Companions</p>
                 <div className="grid grid-cols-3 gap-2">
                     {(['aero', 'volt', 'luna'] as CompanionType[]).map(type => (
                         <button 
                             key={type} 
                             onClick={() => addCompanion(type)}
-                            className="aspect-square rounded-xl bg-slate-200 dark:bg-white/5 border border-slate-300 dark:border-white/10 hover:border-blue-500 transition-all flex items-center justify-center text-xs group"
+                            className="aspect-square rounded-xl bg-white/5 border border-white/5 hover:border-teal-500 transition-all flex items-center justify-center text-xs group"
                         >
                             <div className={`w-6 h-6 rounded-full group-hover:scale-125 transition-transform ${type === 'aero' ? 'bg-cyan-500' : type === 'volt' ? 'bg-emerald-500' : 'bg-pink-400'}`} />
                         </button>
@@ -217,12 +240,12 @@ Hello ${name}! I am Sahayak. You can talk to me in Hindi or English.`,
             </div>
           </div>
           
-          <div className="mt-auto pt-6 border-t border-slate-200 dark:border-white/10">
-            <div className="flex items-center gap-3 mb-4 p-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+          <div className="mt-auto pt-6 border-t border-white/5">
+            <div className="flex items-center gap-3 mb-4 p-3 rounded-2xl bg-white/5 border border-white/5">
               <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white shadow-md">{currentUser.name.charAt(0).toUpperCase()}</div>
               <div className="flex-1 overflow-hidden">
                 <p className="text-sm font-bold truncate">{currentUser.name}</p>
-                <p className="text-[9px] text-green-500 font-black uppercase tracking-widest">Active Link</p>
+                <p className="text-[9px] text-teal-500 font-black uppercase tracking-widest">Active Link</p>
               </div>
             </div>
             <button onClick={handleLogout} className="w-full py-4 rounded-2xl border border-red-500/20 text-red-500 text-xs font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">Disconnect</button>
@@ -230,36 +253,43 @@ Hello ${name}! I am Sahayak. You can talk to me in Hindi or English.`,
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col relative h-full">
-        <header className="h-20 flex items-center justify-between px-6 border-b border-slate-200 dark:border-white/10 glass-card">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col relative h-full z-10">
+        <header className="h-20 flex items-center justify-between px-6 border-b border-white/5 bg-black/10 glass-card">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="md:hidden p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg></button>
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="md:hidden p-2 hover:bg-white/5 rounded-lg text-white"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg></button>
             <div className="flex flex-col">
-              <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${view === 'magic' ? 'text-purple-500' : 'text-blue-600 dark:text-blue-400'}`}>
-                Neural Node Status: Active
+              <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${view === 'magic' ? 'text-purple-500' : 'text-teal-400'}`}>
+                Neural Status: Synchronized
               </span>
-              <span className="font-bold text-lg">{view === 'magic' ? 'Magic Canvas' : `Chatting as ${currentUser.name}`}</span>
+              <span className="font-bold text-lg text-white/90">{view === 'magic' ? 'Magic Canvas' : `Chatting as ${currentUser.name}`}</span>
             </div>
           </div>
-          <button onClick={toggleTheme} className="p-3 rounded-full bg-slate-100 dark:bg-white/5 hover:scale-110 transition-all border border-slate-200 dark:border-white/10 shadow-sm">{theme === 'dark' ? '☀️' : '🌙'}</button>
+          <div className="p-3 text-xs font-black uppercase tracking-widest text-teal-500/40">Secure Connection</div>
         </header>
 
         {view === 'magic' ? (
           <MagicImageMode theme={theme} />
         ) : (
           <>
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6">
               {messages.length === 0 && (
-                  <div className="h-full flex flex-col items-center justify-center opacity-20 text-center space-y-4">
-                      <div className="text-6xl">🤖</div>
-                      <p className="font-black uppercase tracking-[0.5em] text-sm">Waiting for input</p>
+                  <div className="h-full flex flex-col items-center justify-center opacity-30 text-center space-y-6">
+                      <div className="relative">
+                          <div className="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full scale-150 animate-pulse"></div>
+                          <div className="text-8xl relative z-10">🤖</div>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="font-black uppercase tracking-[0.6em] text-sm text-white">Waiting for input</p>
+                        <p className="text-[10px] uppercase font-bold text-slate-500 tracking-[0.4em]">Ask anything in Hindi or English</p>
+                      </div>
                   </div>
               )}
               {messages.map(msg => <ChatMessage key={msg.id} message={msg} theme={theme} />)}
               {isThinking && (
-                  <div className="flex items-center gap-3 p-4 bg-blue-500/5 rounded-2xl w-fit animate-pulse">
-                    <div className="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">Neural Syncing...</span>
+                  <div className="flex items-center gap-3 p-4 bg-teal-500/10 rounded-2xl w-fit border border-teal-500/20 animate-pulse">
+                    <div className="w-4 h-4 border-2 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-teal-400">Neural Syncing...</span>
                   </div>
               )}
               {errorMessage && <div className="mx-auto max-w-lg p-5 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-center text-xs font-bold animate-shake">⚠️ {errorMessage}</div>}
@@ -268,25 +298,25 @@ Hello ${name}! I am Sahayak. You can talk to me in Hindi or English.`,
             <div className="p-6">
               <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto relative group">
                 <RobotAvatar isThinking={isThinking} theme={theme} />
-                <div className={`relative flex items-center bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-2 pr-4 transition-all focus-within:ring-2 focus-within:ring-blue-500/50 shadow-2xl ${selectedImage ? 'pt-24' : ''}`}>
+                <div className={`relative flex items-center bg-black/40 border border-white/10 rounded-[2.5rem] p-2 pr-4 transition-all focus-within:ring-2 focus-within:ring-teal-500/50 shadow-[0_20px_50px_rgba(0,0,0,0.15)] glass-card ${selectedImage ? 'pt-24' : ''}`}>
                   {selectedImage && (
-                      <div className="absolute top-4 left-4 flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-white/10 shadow-md animate-in zoom-in-95 duration-200">
+                      <div className="absolute top-4 left-4 flex items-center gap-2 bg-slate-800/90 p-2 rounded-xl border border-white/10 shadow-md animate-in zoom-in-95 duration-200 backdrop-blur-md">
                         <img src={`data:${selectedImage.mimeType};base64,${selectedImage.data}`} className="w-14 h-14 rounded-lg object-cover" alt="Preview"/>
                         <button type="button" onClick={() => setSelectedImage(null)} className="p-1.5 bg-red-500 text-white rounded-full hover:scale-110 transition-all shadow-sm"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
                       </div>
                   )}
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="p-4 text-slate-400 dark:text-white/30 hover:text-blue-500 transition-colors"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></button>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="p-4 text-white/30 hover:text-teal-500 transition-colors"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></button>
                   <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) { const r = new FileReader(); r.onloadend = () => setSelectedImage({ data: (r.result as string).split(',')[1], mimeType: file.type }); r.readAsDataURL(file); } }} className="hidden"/>
                   <input 
                     value={inputText} 
                     onChange={(e) => setInputText(e.target.value)} 
-                    placeholder={`नमस्ते ${currentUser.name}, कुछ पूछें... (Hindi/English)`} 
-                    className="flex-1 bg-transparent border-none focus:ring-0 px-4 py-4 text-lg font-medium placeholder-slate-400 dark:placeholder-white/10" 
+                    placeholder={`नमस्ते ${currentUser.name}, कुछ पूछें...`} 
+                    className="flex-1 bg-transparent border-none focus:ring-0 px-4 py-4 text-lg font-medium placeholder-white/20 text-white" 
                   />
-                  <button type="submit" disabled={isThinking || (!inputText.trim() && !selectedImage)} className="p-4 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-lg shadow-blue-500/40 transition-all active:scale-95 disabled:opacity-50"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg></button>
+                  <button type="submit" disabled={isThinking || (!inputText.trim() && !selectedImage)} className="p-4 bg-gradient-to-br from-blue-600 to-teal-600 hover:from-blue-500 hover:to-teal-500 text-white rounded-full shadow-lg shadow-teal-500/30 transition-all active:scale-95 disabled:opacity-50"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg></button>
                 </div>
               </form>
-              <p className="text-center text-[9px] text-slate-400 dark:text-white/10 mt-6 uppercase tracking-[0.5em] font-black">Bilingual Intelligence • Nano Banana Engine</p>
+              <p className="text-center text-[9px] text-white/20 mt-6 uppercase tracking-[0.6em] font-black">Bilingual Intelligence • Nano Banana Engine</p>
             </div>
           </>
         )}
