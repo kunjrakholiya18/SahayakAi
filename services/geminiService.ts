@@ -27,7 +27,7 @@ export const generateBilingualResponse = async (
 ) => {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) {
-    throw new Error("API Key missing: Please enter your key in the login screen.");
+    throw new Error("Enter valid API key");
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -74,6 +74,10 @@ export const generateBilingualResponse = async (
     return { text: response.text || "I apologize, I couldn't generate a response." };
   } catch (error: any) {
     console.error("Gemini API Error:", error);
+    const msg = error.message?.toLowerCase() || "";
+    if (msg.includes("api_key_invalid") || msg.includes("invalid api key") || msg.includes("401") || msg.includes("key not found")) {
+      throw new Error("Enter valid API key");
+    }
     throw error;
   }
 };
@@ -83,7 +87,7 @@ export const generateBilingualResponse = async (
  */
 export const generateAIImage = async (prompt: string, aspectRatio: string = "1:1", referenceImage?: { data: string, mimeType: string }) => {
   const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API Key is missing.");
+  if (!apiKey) throw new Error("Enter valid API key");
   
   const ai = new GoogleGenAI({ apiKey });
 
@@ -114,8 +118,12 @@ export const generateAIImage = async (prompt: string, aspectRatio: string = "1:1
       }
     }
     return null;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Image Gen Error:", error);
+    const msg = error.message?.toLowerCase() || "";
+    if (msg.includes("api_key_invalid") || msg.includes("invalid api key") || msg.includes("401") || msg.includes("key not found")) {
+      throw new Error("Enter valid API key");
+    }
     throw error;
   }
 };
