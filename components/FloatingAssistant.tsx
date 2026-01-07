@@ -1,6 +1,5 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, Modality } from "@google/genai";
 
 export type CompanionType = 'aero' | 'volt' | 'luna';
 
@@ -22,15 +21,13 @@ const FloatingAssistant: React.FC<FloatingAssistantProps> = ({ type, isThinking,
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [interactionState, setInteractionState] = useState<'idle' | 'laughing' | 'angry' | 'scared' | 'looking_left' | 'looking_right'>('idle');
   const [showGreeting, setShowGreeting] = useState(true);
-  const [isBotSpeaking, setIsBotSpeaking] = useState(false);
   
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const isSpeakingRef = useRef(false);
+  // Audio functionality removed as per user request (Voice only voice nikal do)
 
   // --- Neural Autonomy Logic (Idle Animations) ---
   useEffect(() => {
     const autonomyInterval = setInterval(() => {
-      if (isDragging || isThinking || isBotSpeaking || interactionState !== 'idle') return;
+      if (isDragging || isThinking || interactionState !== 'idle') return;
 
       const rand = Math.random();
       if (rand < 0.15) {
@@ -46,89 +43,17 @@ const FloatingAssistant: React.FC<FloatingAssistantProps> = ({ type, isThinking,
     }, 6000);
 
     return () => clearInterval(autonomyInterval);
-  }, [isDragging, isThinking, isBotSpeaking, interactionState]);
+  }, [isDragging, isThinking, interactionState]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowGreeting(false), 4000);
     return () => clearTimeout(timer);
   }, []);
 
-  const decode = (base64: string) => {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  };
-
-  const decodeAudioData = async (data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> => {
-    const dataInt16 = new Int16Array(data.buffer);
-    const frameCount = dataInt16.length / numChannels;
-    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-    for (let channel = 0; channel < numChannels; channel++) {
-      const channelData = buffer.getChannelData(channel);
-      for (let i = 0; i < frameCount; i++) {
-        channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-      }
-    }
-    return buffer;
-  };
-
-  const speakReaction = async (text: string) => {
-    if (isSpeakingRef.current || !process.env.API_KEY) return;
-    isSpeakingRef.current = true;
-    setIsBotSpeaking(true);
-
-    try {
-      // Re-initializing right before call to ensure up-to-date key access
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const voiceName = type === 'aero' ? 'Zephyr' : type === 'volt' ? 'Puck' : 'Kore'; 
-
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName },
-            },
-          },
-        },
-      });
-
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      if (base64Audio) {
-        if (!audioContextRef.current) {
-          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-        }
-        const ctx = audioContextRef.current;
-        const audioBuffer = await decodeAudioData(decode(base64Audio), ctx, 24000, 1);
-        const source = ctx.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(ctx.destination);
-        source.onended = () => { 
-          isSpeakingRef.current = false; 
-          setIsBotSpeaking(false);
-        };
-        source.start();
-      } else {
-        throw new Error("No audio data received");
-      }
-    } catch (err) {
-      console.error("TTS Error:", err);
-      isSpeakingRef.current = false;
-      setIsBotSpeaking(false);
-    }
-  };
-
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
     if (interactionState !== 'scared') {
       setInteractionState('scared');
-      const msg = type === 'volt' ? "Protocol unstable!" : type === 'luna' ? "Hey, move me carefully!" : "Wheeeee!";
-      speakReaction(msg);
     }
     setDragOffset({
       x: e.clientX - position.x,
@@ -163,20 +88,16 @@ const FloatingAssistant: React.FC<FloatingAssistantProps> = ({ type, isThinking,
   const handleSingleClick = (e: React.MouseEvent) => {
     if (isDragging) return;
     setInteractionState('laughing');
-    const msg = type === 'luna' ? "That feels pink and bubbly!" : type === 'volt' ? "Energy surge! Hehe!" : "Cloud tickles!";
-    speakReaction(msg);
     setTimeout(() => setInteractionState('idle'), 2500);
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setInteractionState('angry');
-    const msg = type === 'volt' ? "Energy surge detected! Stop!" : type === 'luna' ? "Hmph! Be nice!" : "Forceful interaction detected!";
-    speakReaction(msg);
     setTimeout(() => setInteractionState('idle'), 3500);
   };
 
-  // BOT THEMES: Bodies are now colored, not white
+  // BOT THEMES: Bodies are now colored
   const botThemes = {
     aero: { 
       body: 'bg-cyan-500', 
@@ -251,13 +172,8 @@ const FloatingAssistant: React.FC<FloatingAssistantProps> = ({ type, isThinking,
                    interactionState === 'laughing' ? 'w-6 h-2 border-b-2 border-white rounded-full' :
                    interactionState === 'angry' ? 'w-4 h-1 border-t-2 border-red-500 rounded-full' :
                    interactionState === 'scared' ? 'w-2 h-2 border border-white rounded-full' :
-                   isBotSpeaking ? 'w-6 h-1 flex gap-0.5 items-center justify-center' :
                    'w-2 h-0.5 bg-pink-200 rounded-full'
-                 }`}>
-                   {isBotSpeaking && (
-                     <><div className="w-0.5 h-2 bg-white animate-speaking-bar" /><div className="w-0.5 h-3 bg-white animate-speaking-bar" style={{ animationDelay: '0.1s' }} /></>
-                   )}
-                 </div>
+                 }`} />
               </div>
             </div>
           </div>
@@ -311,13 +227,8 @@ const FloatingAssistant: React.FC<FloatingAssistantProps> = ({ type, isThinking,
                    interactionState === 'laughing' ? 'w-6 h-2 border-b-2 border-green-400 rounded-full' :
                    interactionState === 'angry' ? 'w-4 h-1 border-t-2 border-red-500 rounded-full' :
                    interactionState === 'scared' ? 'w-1.5 h-1.5 border border-white rounded-full' :
-                   isBotSpeaking ? 'w-6 h-2 flex gap-0.5 items-center justify-center' :
                    'w-3 h-0.5 bg-green-900/40 rounded-full'
-                 }`}>
-                   {isBotSpeaking && (
-                     <><div className="w-0.5 h-2 bg-green-400 animate-speaking-bar" /><div className="w-0.5 h-3 bg-green-400 animate-speaking-bar" style={{ animationDelay: '0.1s' }} /></>
-                   )}
-                 </div>
+                 }`} />
                </div>
             </div>
           </div>
@@ -331,7 +242,7 @@ const FloatingAssistant: React.FC<FloatingAssistantProps> = ({ type, isThinking,
               interactionState === 'laughing' ? 'animate-wave-right' :
               interactionState === 'scared' ? 'rotate-[40deg]' : interactionState === 'idle' ? 'rotate-[5deg]' : 'rotate-0'
             }`} />
-            <div className={`w-8 h-8 rounded-lg border border-emerald-400 bg-emerald-900 flex flex-col items-center justify-center ${isThinking || isBotSpeaking || interactionState === 'idle' ? 'animate-pulse' : ''}`}>
+            <div className={`w-8 h-8 rounded-lg border border-emerald-400 bg-emerald-900 flex flex-col items-center justify-center ${isThinking || interactionState === 'idle' ? 'animate-pulse' : ''}`}>
               <div className={`w-4 h-1 rounded-sm ${themeConfig.core} ${themeConfig.glow}`} />
             </div>
           </div>
@@ -374,13 +285,8 @@ const FloatingAssistant: React.FC<FloatingAssistantProps> = ({ type, isThinking,
                 interactionState === 'laughing' ? 'w-8 h-3 border-b-4 border-white rounded-full' :
                 interactionState === 'angry' ? 'w-6 h-1.5 border-t-2 border-red-500 rounded-full mt-2' :
                 interactionState === 'scared' ? 'w-3 h-3 border-2 border-white rounded-full' :
-                isBotSpeaking ? 'w-8 h-2 flex gap-0.5 items-center justify-center' :
                 'w-4 h-0.5 bg-white/40 rounded-full'
-              }`}>
-                {isBotSpeaking && (
-                  <><div className="w-1 h-2 bg-white rounded-full animate-speaking-bar" /><div className="w-1 h-3 bg-white rounded-full animate-speaking-bar" style={{ animationDelay: '0.1s' }} /></>
-                )}
-              </div>
+              }`} />
             </div>
           </div>
         </div>
@@ -394,7 +300,7 @@ const FloatingAssistant: React.FC<FloatingAssistantProps> = ({ type, isThinking,
             interactionState === 'laughing' ? 'animate-wave-right' : 
             interactionState === 'scared' ? 'rotate-[60deg]' : interactionState === 'idle' ? 'rotate-[10deg]' : 'rotate-0'
           }`} />
-          <div className={`w-12 h-12 rounded-full flex flex-col items-center justify-center border-2 border-cyan-300 shadow-inner ${isThinking || isBotSpeaking || interactionState === 'idle' ? 'animate-pulse' : ''}`}>
+          <div className={`w-12 h-12 rounded-full flex flex-col items-center justify-center border-2 border-cyan-300 shadow-inner ${isThinking || interactionState === 'idle' ? 'animate-pulse' : ''}`}>
              <span className={`text-[10px] font-black text-white drop-shadow-sm`}>AI</span>
              <div className={`w-6 h-1 rounded-full ${themeConfig.core} ${themeConfig.glow} opacity-80`} />
           </div>
@@ -404,9 +310,7 @@ const FloatingAssistant: React.FC<FloatingAssistantProps> = ({ type, isThinking,
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes blink { 0%, 96%, 100% { transform: scaleY(1); } 98% { transform: scaleY(0.1); } }
         @keyframes float-gentle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        @keyframes speaking-bar { 0%, 100% { height: 2px; } 50% { height: 8px; } }
         .animate-float-gentle { animation: float-gentle 4s ease-in-out infinite; }
-        .animate-speaking-bar { animation: speaking-bar 0.3s ease-in-out infinite; }
         @keyframes wave-left { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-40deg); } }
         @keyframes wave-right { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(40deg); } }
         .animate-wave-left { animation: wave-left 0.5s ease-in-out infinite; }
