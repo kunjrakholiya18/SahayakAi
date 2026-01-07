@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { GoogleGenAI, Modality, LiveServerMessage, Blob } from '@google/genai';
+import { getEffectiveApiKey } from '../services/geminiService';
 import AuthRobot from './AuthRobot';
 
 interface LiveModeProps {
@@ -22,7 +23,7 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
   const nextStartTimeRef = useRef<number>(0);
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
 
-  // Manual Base64 Implementation (as per requirements)
+  // Manual Base64 Implementation
   const encode = (bytes: Uint8Array) => {
     let binary = '';
     const len = bytes.byteLength;
@@ -106,11 +107,11 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
     setStatus('connecting');
     setError(null);
 
-    // Exclusively rely on the environment's API_KEY.
-    const apiKey = process.env.API_KEY;
+    // Use the effective API key (manual override or environment)
+    const apiKey = getEffectiveApiKey();
 
     try {
-      if (!apiKey) throw new Error("Neural Key Missing: Please select an API Key.");
+      if (!apiKey) throw new Error("API Key Missing: Please provide a key in the login screen.");
 
       const ai = new GoogleGenAI({ apiKey });
       
@@ -126,8 +127,9 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
       inputAudioCtxRef.current = new AudioContext({ sampleRate: 16000 });
       outputAudioCtxRef.current = new AudioContext({ sampleRate: 24000 });
 
+      // Corrected model name per technical requirements
       const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         callbacks: {
           onopen: () => {
             console.debug('Sahayak: Neural link established.');
@@ -139,7 +141,6 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
             scriptProcessor.onaudioprocess = (e) => {
               const inputData = e.inputBuffer.getChannelData(0);
               const pcmBlob = createBlob(inputData);
-              // CRITICAL: Solely rely on sessionPromise resolution to prevent race conditions.
               sessionPromise.then((session) => {
                 session.sendRealtimeInput({ media: pcmBlob });
               });
@@ -178,7 +179,7 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
           },
           onerror: (e) => {
             console.error('Sahayak: Session Error', e);
-            setError("Connection severed. Please check your API Key selection.");
+            setError("Connection error. Please verify your API Key and network.");
             setStatus('disconnected');
           },
           onclose: () => {
@@ -201,7 +202,7 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
 
     } catch (err: any) {
       console.error('Sahayak: Initialization Failed', err);
-      setError("Failed to initialize voice link. Please ensure an API Key is selected.");
+      setError("Failed to initialize voice link. Check your API Key.");
       setStatus('disconnected');
     }
   };
