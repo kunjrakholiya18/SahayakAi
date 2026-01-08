@@ -30,6 +30,19 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, theme = 'dark' }) =>
     if (e.target.value) setRobotState('typing');
   };
 
+  const handleSelectKey = async () => {
+    if (window.aistudio?.openSelectKey) {
+      setRobotState('cheering');
+      await window.aistudio.openSelectKey();
+      // After selecting, we assume the key is available via process.env.API_KEY
+      if (name.trim()) {
+          handleSubmit(new Event('submit') as any);
+      } else {
+          setError('Please enter your name first');
+      }
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -37,28 +50,23 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, theme = 'dark' }) =>
       setError('Please enter your name');
       return;
     }
-    if (!apiKey.trim()) {
-      setRobotState('denying');
-      setError('Please enter your Gemini API Key');
-      return;
-    }
 
     setIsLoading(true);
     setRobotState('cheering');
     
-    // Simulate a neural handshake
+    // Key might come from manual input or be pre-configured in process.env
+    const finalKey = apiKey.trim() || process.env.API_KEY || '';
+    
     setTimeout(() => {
-      onSuccess(name.trim(), apiKey.trim());
+      onSuccess(name.trim(), finalKey);
     }, 1200);
   };
 
   return (
     <div className="min-h-screen w-screen flex flex-col items-center justify-center bg-black overflow-hidden relative px-6 py-12 transition-colors duration-500 font-sans">
-      {/* Background Decor */}
       <div className="absolute top-1/4 -left-20 opacity-20"><Orb size="lg" theme="dark" /></div>
       <div className="absolute bottom-1/4 -right-20 opacity-20"><Orb size="md" theme="dark" /></div>
       
-      {/* Robot Mascot */}
       <div className="mb-8 z-20 transition-transform duration-700 hover:scale-110">
         <AuthRobot state={robotState} />
       </div>
@@ -68,12 +76,12 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, theme = 'dark' }) =>
             <h1 className="text-4xl md:text-6xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-300 dark:to-indigo-400">
                 Sahayak AI
             </h1>
-            <p className="text-xs font-black text-white/30 uppercase tracking-[0.4em]">Bilingual Personal Assistant</p>
+            <p className="text-xs font-black text-white/30 uppercase tracking-[0.4em]">Personal Assistant • Made by Kunj</p>
         </div>
 
         <form onSubmit={handleSubmit} className="relative max-w-md mx-auto space-y-6">
             <div className="space-y-2 text-left">
-                <label className="px-5 text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Your Name</label>
+                <label className="px-5 text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Your Name </label>
                 <input 
                     type="text" 
                     value={name}
@@ -84,14 +92,29 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, theme = 'dark' }) =>
             </div>
 
             <div className="space-y-2 text-left">
-                <label className="px-5 text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Enter Your Gemini API Key</label>
-                <input 
-                    type="password" 
-                    value={apiKey}
-                    onChange={handleKeyChange}
-                    placeholder="Enter Your Gemini API Key"
-                    className="w-full px-8 py-5 rounded-[2rem] bg-white/5 border-2 border-white/10 text-lg font-bold text-white outline-none focus:border-blue-500 transition-all shadow-xl"
-                />
+                <label className="px-5 text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Gemini API Key (Optional if pre-set)</label>
+                <div className="flex gap-2">
+                    <input 
+                        type="password" 
+                        value={apiKey}
+                        onChange={handleKeyChange}
+                        placeholder="Paste key or use selector"
+                        className="flex-1 px-8 py-5 rounded-[2rem] bg-white/5 border-2 border-white/10 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all shadow-xl"
+                    />
+                    {window.aistudio && (
+                      <button 
+                        type="button" 
+                        onClick={handleSelectKey}
+                        className="px-6 rounded-[2rem] bg-white/10 border-2 border-white/10 hover:bg-white/20 transition-all text-xl"
+                        title="Select key from AI Studio"
+                      >
+                        🔑
+                      </button>
+                    )}
+                </div>
+                <p className="px-5 text-[8px] text-white/30 font-bold uppercase tracking-widest">
+                  Required for Live Voice & High-Quality Responses
+                </p>
             </div>
             
             {error && (
@@ -104,7 +127,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, theme = 'dark' }) =>
                 type="submit"
                 disabled={isLoading}
                 className={`w-full py-6 rounded-[2.5rem] font-black uppercase tracking-[0.3em] text-sm shadow-2xl transition-all flex items-center justify-center gap-3 ${
-                  name.trim() && apiKey.trim() && !isLoading
+                  name.trim() && !isLoading
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:scale-[1.02] active:scale-95' 
                   : 'bg-white/5 text-white/10 cursor-not-allowed'
                 }`}
@@ -122,7 +145,9 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, theme = 'dark' }) =>
 
         <div className="pt-8 border-t border-white/5 max-w-sm mx-auto">
             <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] leading-relaxed">
-                Enter your name and API key to connect to Sahayak. Your key is used locally to connect with Gemini.
+                Connect to Sahayak. Created by Kunj. Responses in English & Hindi.
+                <br/>
+                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-blue-500/50 hover:underline mt-2 inline-block">Learn about API Keys</a>
             </p>
         </div>
       </div>
