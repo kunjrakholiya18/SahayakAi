@@ -21,8 +21,10 @@ interface CompanionInstance {
 type AppView = 'chat' | 'magic';
 
 const App: React.FC = () => {
-  // Always start as null to force login every time the app is opened
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    const saved = localStorage.getItem('sahayak_user');
+    return saved ? JSON.parse(saved) : null;
+  });
 
   const [view, setView] = useState<AppView>('chat');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -51,25 +53,33 @@ const App: React.FC = () => {
     }
   }, [messages, isThinking, view]);
 
+  // Initial welcome message for returning users
+  useEffect(() => {
+    if (currentUser && messages.length === 0) {
+        setMessages([{
+            id: 'welcome-' + Date.now(),
+            role: 'assistant',
+            content: `नमस्ते ${currentUser.name}! मैं सहायक हूँ, और मुझे कुंज (Kunj) ने बनाया है।
+मैं आपकी हिंदी और अंग्रेजी दोनों में मदद कर सकता हूँ।
+
+Hello ${currentUser.name}! I am Sahayak, and I am made by Kunj.
+I can help you in both Hindi and English.`,
+            timestamp: new Date()
+        }]);
+    }
+  }, [currentUser]);
+
   const handleAuthSuccess = (name: string, apiKey: string) => {
     setManualApiKey(apiKey);
     const newUser = { name };
     setCurrentUser(newUser);
-    // Note: We are NOT saving to localStorage here to ensure login is required next time.
-
-    setMessages([{
-      id: 'welcome-' + Date.now(),
-      role: 'assistant',
-      content: `नमस्ते ${name}! मैं सहायक हूँ। 
-      
-आप मुझसे हिंदी या अंग्रेजी में बात कर सकते हैं।
-Hello ${name}! I am Sahayak. You can talk to me in Hindi or English.`,
-      timestamp: new Date()
-    }]);
+    localStorage.setItem('sahayak_user', JSON.stringify(newUser));
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
+    localStorage.removeItem('sahayak_user');
+    localStorage.removeItem('sahayak_api_key');
     setMessages([]);
     setView('chat');
   };
@@ -116,7 +126,8 @@ Hello ${name}! I am Sahayak. You can talk to me in Hindi or English.`,
           setMessages(prev => [...prev, {
             id: Date.now().toString(),
             role: 'assistant',
-            content: `यह रहा आपका चित्र, ${currentUser.name}!`,
+            content: `यह रहा आपका चित्र, ${currentUser.name}! 
+Here is your image, ${currentUser.name}!`,
             image: url,
             timestamp: new Date()
           }]);
@@ -186,80 +197,49 @@ Hello ${name}! I am Sahayak. You can talk to me in Hindi or English.`,
               <h1 className="text-xl font-black tracking-tighter text-white group-hover:text-blue-400 transition-colors">Sahayak AI</h1>
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></div>
-                <span className="text-[8px] font-bold text-teal-500 uppercase tracking-[0.2em] -mt-0.5">Quantum Core</span>
+                <span className="text-[8px] font-bold text-teal-500 uppercase tracking-[0.2em] -mt-0.5">By Kunj</span>
               </div>
             </div>
           </div>
           
           <div className="space-y-4 mb-6 flex-1 overflow-y-auto pr-2">
-            {/* Mode Selector Buttons with requested "Card" style and animations */}
             <button 
               onClick={() => { setView('chat'); setIsSidebarOpen(false); }}
-              className={`group/btn w-full flex items-center gap-4 p-4 rounded-[1.8rem] transition-all duration-500 border relative overflow-hidden ${
-                view === 'chat' 
-                ? 'bg-blue-600/10 border-blue-500/50 shadow-[0_0_20px_rgba(37,99,235,0.15)] translate-x-1' 
-                : 'bg-transparent border-white/5 hover:border-blue-500/30 hover:translate-x-2'
-              }`}
+              className={`w-full flex items-center gap-4 p-4 rounded-[1.8rem] transition-all duration-300 border hover:scale-[1.05] hover:shadow-[0_0_30px_rgba(37,99,235,0.2)] ${view === 'chat' ? 'bg-blue-600/10 border-blue-500/50' : 'bg-transparent border-white/5 hover:border-blue-500/30'}`}
             >
-              {/* Inner Light Effect on Hover */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-600/5 to-blue-600/0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-              
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all duration-500 ${view === 'chat' ? 'bg-blue-600 shadow-[0_0_20px_rgba(37,99,235,0.6)]' : 'bg-blue-600/20 text-blue-400 group-hover/btn:bg-blue-600 group-hover/btn:text-white group-hover/btn:shadow-[0_0_20px_rgba(37,99,235,0.4)]'}`}>💬</div>
-              <div className="text-left relative z-10">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all duration-300 ${view === 'chat' ? 'bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.6)]' : 'bg-blue-600/20 text-blue-400'}`}>💬</div>
+              <div className="text-left">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400/70">Interaction</p>
-                <p className="text-sm font-bold text-white group-hover/btn:text-blue-200 transition-colors">Chat Mode</p>
+                <p className="text-sm font-bold text-white">Chat Mode</p>
               </div>
             </button>
 
             <button 
               onClick={() => { setView('magic'); setIsSidebarOpen(false); }}
-              className={`group/btn w-full flex items-center gap-4 p-4 rounded-[1.8rem] transition-all duration-500 border relative overflow-hidden ${
-                view === 'magic' 
-                ? 'bg-purple-600/10 border-purple-500/50 shadow-[0_0_20px_rgba(147,51,234,0.15)] translate-x-1' 
-                : 'bg-transparent border-white/5 hover:border-purple-500/30 hover:translate-x-2'
-              }`}
+              className={`w-full flex items-center gap-4 p-4 rounded-[1.8rem] transition-all duration-300 border hover:scale-[1.05] hover:shadow-[0_0_30px_rgba(147,51,234,0.2)] ${view === 'magic' ? 'bg-purple-600/10 border-purple-500/50' : 'bg-transparent border-white/5 hover:border-purple-500/30'}`}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-600/0 via-purple-600/5 to-purple-600/0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-              
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all duration-500 ${view === 'magic' ? 'bg-purple-600 shadow-[0_0_20px_rgba(147,51,234,0.6)]' : 'bg-purple-600/20 text-purple-400 group-hover/btn:bg-purple-600 group-hover/btn:text-white group-hover/btn:shadow-[0_0_20px_rgba(147,51,234,0.4)]'}`}>✨</div>
-              <div className="text-left relative z-10">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all duration-300 ${view === 'magic' ? 'bg-purple-600 shadow-[0_0_15px_rgba(147,51,234,0.6)]' : 'bg-purple-600/20 text-purple-400'}`}>✨</div>
+              <div className="text-left">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-400/70">Creative</p>
-                <p className="text-sm font-bold text-white group-hover/btn:text-purple-200 transition-colors">Magic Canvas</p>
+                <p className="text-sm font-bold text-white">Magic Canvas</p>
               </div>
             </button>
 
             <button 
               onClick={() => setIsLiveMode(true)} 
-              className="group/btn w-full flex items-center gap-4 p-4 rounded-[1.8rem] transition-all duration-500 border border-teal-500/20 bg-transparent hover:border-teal-500/50 hover:translate-x-2 hover:shadow-[0_0_25px_rgba(20,184,166,0.2)]"
+              className="w-full flex items-center gap-4 p-4 rounded-[1.8rem] transition-all duration-300 border border-teal-500/20 bg-transparent hover:bg-teal-500/5 hover:scale-[1.05] hover:border-teal-500/50 hover:shadow-[0_0_30px_rgba(20,184,166,0.2)]"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-teal-500/0 via-teal-500/5 to-teal-500/0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-              
-              <div className="w-12 h-12 rounded-2xl bg-teal-500/20 flex items-center justify-center text-xl text-teal-400 shadow-[0_0_15px_rgba(20,184,166,0.2)] group-hover/btn:bg-teal-500 group-hover/btn:text-white group-hover/btn:shadow-[0_0_20px_rgba(20,184,166,0.5)] transition-all">🎙️</div>
-              <div className="text-left relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-teal-500/20 flex items-center justify-center text-xl text-teal-400 shadow-[0_0_15px_rgba(20,184,166,0.2)] group-hover:bg-teal-500 group-hover:text-white transition-all">🎙️</div>
+              <div className="text-left">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-400/70">Real-time</p>
-                <p className="text-sm font-bold text-white group-hover/btn:text-teal-200 transition-colors">Voice Mode</p>
+                <p className="text-sm font-bold text-white">Voice Mode</p>
               </div>
             </button>
-
-            <div className="pt-6 mt-6 border-t border-white/5">
-                <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] mb-4 px-2">Companions</p>
-                <div className="grid grid-cols-3 gap-3">
-                    {(['aero', 'volt', 'luna'] as CompanionType[]).map(type => (
-                        <button 
-                            key={type} 
-                            onClick={() => addCompanion(type)}
-                            className={`aspect-square rounded-2xl border border-white/5 bg-white/5 hover:border-blue-500/50 hover:bg-white/10 hover:scale-110 transition-all flex items-center justify-center group shadow-lg ${type === 'aero' ? 'hover:shadow-cyan-500/20' : type === 'volt' ? 'hover:shadow-emerald-500/20' : 'hover:shadow-pink-500/20'}`}
-                        >
-                            <div className={`w-8 h-8 rounded-full group-hover:scale-125 transition-transform shadow-[0_0_15px_rgba(255,255,255,0.1)] ${type === 'aero' ? 'bg-cyan-500' : type === 'volt' ? 'bg-emerald-500' : 'bg-pink-400'}`} />
-                        </button>
-                    ))}
-                </div>
-            </div>
           </div>
           
           <div className="mt-auto pt-6 border-t border-white/5">
-            <div className="flex items-center gap-3 mb-4 p-4 rounded-[1.5rem] bg-white/5 border border-white/5 hover:border-white/20 transition-all group/profile">
-              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20 group-hover/profile:scale-110 transition-transform">{currentUser.name.charAt(0).toUpperCase()}</div>
+            <div className="flex items-center gap-3 mb-4 p-4 rounded-[1.5rem] bg-white/5 border border-white/5 hover:border-white/20 transition-all">
+              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">{currentUser.name.charAt(0).toUpperCase()}</div>
               <div className="flex-1 overflow-hidden">
                 <p className="text-sm font-bold truncate text-white">{currentUser.name}</p>
                 <p className="text-[9px] text-teal-500 font-black uppercase tracking-widest">Neural Linked</p>
@@ -279,10 +259,10 @@ Hello ${name}! I am Sahayak. You can talk to me in Hindi or English.`,
               <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${view === 'magic' ? 'text-purple-500' : 'text-teal-400'}`}>
                 Neural Status: Synchronized
               </span>
-              <span className="font-bold text-lg text-white/90">{view === 'magic' ? 'Magic Canvas' : `Chatting as ${currentUser.name}`}</span>
+              <span className="font-bold text-lg text-white/90">{view === 'magic' ? 'Magic Canvas' : `Bilingual Chat as ${currentUser.name}`}</span>
             </div>
           </div>
-          <div className="p-3 text-xs font-black uppercase tracking-widest text-teal-500/40 border border-teal-500/10 rounded-full px-5 bg-teal-500/5">Encrypted Connection</div>
+          <div className="p-3 text-xs font-black uppercase tracking-widest text-teal-500/40 border border-teal-500/10 rounded-full px-5 bg-teal-500/5">Made by Kunj</div>
         </header>
 
         {view === 'magic' ? (
@@ -297,8 +277,8 @@ Hello ${name}! I am Sahayak. You can talk to me in Hindi or English.`,
                           <div className="text-8xl relative z-10">🤖</div>
                       </div>
                       <div className="space-y-2">
-                        <p className="font-black uppercase tracking-[0.6em] text-sm text-white">Waiting for input</p>
-                        <p className="text-[10px] uppercase font-bold text-slate-500 tracking-[0.4em]">Ask anything in Hindi or English</p>
+                        <p className="font-black uppercase tracking-[0.6em] text-sm text-white">Sahayak AI</p>
+                        <p className="text-[10px] uppercase font-bold text-slate-500 tracking-[0.4em]">Made by Kunj • Bilingual Mode</p>
                       </div>
                   </div>
               )}
@@ -306,7 +286,7 @@ Hello ${name}! I am Sahayak. You can talk to me in Hindi or English.`,
               {isThinking && (
                   <div className="flex items-center gap-3 p-4 bg-teal-500/10 rounded-[1.2rem] w-fit border border-teal-500/20 animate-pulse">
                     <div className="w-4 h-4 border-2 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-teal-400">Neural Syncing...</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-teal-400">Thinking...</span>
                   </div>
               )}
               {errorMessage && (
@@ -340,13 +320,13 @@ Hello ${name}! I am Sahayak. You can talk to me in Hindi or English.`,
                   <input 
                     value={inputText} 
                     onChange={(e) => setInputText(e.target.value)} 
-                    placeholder={`नमस्ते ${currentUser.name}, कुछ पूछें...`} 
+                    placeholder={`नमस्ते ${currentUser.name}, कुछ पूछें (Hindi/English)...`} 
                     className="flex-1 bg-transparent border-none focus:ring-0 px-4 py-4 text-lg font-medium placeholder-white/20 text-white" 
                   />
                   <button type="submit" disabled={isThinking || (!inputText.trim() && !selectedImage)} className="p-4 bg-gradient-to-br from-blue-600 to-teal-600 hover:from-blue-500 hover:to-teal-500 text-white rounded-full shadow-lg shadow-teal-500/30 transition-all hover:scale-110 active:scale-95 disabled:opacity-50"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg></button>
                 </div>
               </form>
-              <p className="text-center text-[9px] text-white/20 mt-6 uppercase tracking-[0.6em] font-black">Bilingual Intelligence • Nano Banana Engine</p>
+              <p className="text-center text-[9px] text-white/20 mt-6 uppercase tracking-[0.6em] font-black">Made by Kunj • Bilingual AI Assistant</p>
             </div>
           </>
         )}
