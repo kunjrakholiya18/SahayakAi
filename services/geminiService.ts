@@ -1,13 +1,17 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-let manualApiKey: string | null = null;
+// Initialize from localStorage if available
+let manualApiKey: string | null = typeof window !== 'undefined' ? localStorage.getItem('sahayak_api_key') : null;
 
 /**
- * Set the API key manually from the UI.
+ * Set the API key manually from the UI and persist it.
  */
 export const setManualApiKey = (key: string) => {
   manualApiKey = key;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('sahayak_api_key', key);
+  }
 };
 
 /**
@@ -16,8 +20,7 @@ export const setManualApiKey = (key: string) => {
 export const getEffectiveApiKey = () => manualApiKey || process.env.API_KEY;
 
 /**
- * Generate a language-matched response (English or Hindi) 
- * based on the user's input language.
+ * Generate a language-matched response based on the user's input language.
  */
 export const generateBilingualResponse = async (
   userName: string, 
@@ -33,13 +36,18 @@ export const generateBilingualResponse = async (
   const ai = new GoogleGenAI({ apiKey });
   
   const systemInstruction = `
-    Your name is 'Sahayak'. You are an expert and deeply knowledgeable personal AI assistant for ${userName}.
+    Your name is 'Sahayak'. You are an expert personal AI assistant created by Kunj.
     
-    STRICT LANGUAGE RULES:
-    1. Detect the language of the user's message.
-    2. If the user speaks English -> Respond ONLY in English.
-    3. If the user speaks Hindi or Hinglish -> Respond ONLY in Hindi.
-    4. Provide detailed, helpful, and polite answers.
+    LANGUAGE RULE:
+    - Detect the language of the user's message (Hindi or English).
+    - If the user speaks in English, you must respond ONLY in English.
+    - If the user speaks in Hindi, you must respond ONLY in Hindi.
+    - Do not provide a bilingual/translated response unless the user explicitly asks for a translation.
+    
+    CREATOR ATTRIBUTION RULE (CRITICAL):
+    - If the user says "hello", "hi", "namaste", or any greeting, you MUST introduce yourself and state that you were made by Kunj in the language the user used.
+    - In English: "I am Sahayak, made by Kunj."
+    - In Hindi: "Main Sahayak hoon, mujhe Kunj ne banaya hai."
     
     TONE:
     Be professional, helpful, and address the user by their name: ${userName}.
