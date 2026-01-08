@@ -1,12 +1,12 @@
 
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GoogleGenAI, Modality, LiveServerMessage, Blob } from '@google/genai';
 import { getEffectiveApiKey } from '../services/geminiService';
 import AuthRobot from './AuthRobot';
 
 interface LiveModeProps {
   userName: string;
-  voiceName: 'Kore' | 'Zephyr';
+  voiceName: 'Kore' | 'Zephyr' | 'Puck' | 'Charon' | 'Fenrir';
   theme: 'light' | 'dark';
   onClose: () => void;
 }
@@ -15,15 +15,14 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
   const [status, setStatus] = useState<'connecting' | 'listening' | 'speaking' | 'disconnected'>('connecting');
   const [error, setError] = useState<string | null>(null);
   
-  // Audio Refs
   const inputAudioCtxRef = useRef<AudioContext | null>(null);
   const outputAudioCtxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const nextStartTimeRef = useRef<number>(0);
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
+  const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
 
-  // Manual Base64 Implementation
   const encode = (bytes: Uint8Array) => {
     let binary = '';
     const len = bytes.byteLength;
@@ -69,22 +68,24 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
   }
 
   const cleanup = async () => {
-    console.debug('Sahayak: Running deep hardware cleanup...');
+    console.debug('Sahayak: Deep hardware cleanup...');
     
-    // Stop all active audio playback
-    sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
+    if (scriptProcessorRef.current) {
+      scriptProcessorRef.current.onaudioprocess = null;
+      scriptProcessorRef.current.disconnect();
+      scriptProcessorRef.current = null;
+    }
+
+    sourcesRef.current.forEach(s => { 
+      try { s.stop(); } catch(e) {} 
+    });
     sourcesRef.current.clear();
 
-    // Release Microphone
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => {
-        t.stop();
-        t.enabled = false;
-      });
+      streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
 
-    // Close Contexts
     if (inputAudioCtxRef.current) {
       try { await inputAudioCtxRef.current.close(); } catch(e) {}
       inputAudioCtxRef.current = null;
@@ -98,20 +99,27 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
     nextStartTimeRef.current = 0;
   };
 
+  const handleEntityNotFound = async () => {
+    if (window.aistudio?.openSelectKey) {
+        setError("Session failed. Please select a valid paid API key from a project with billing enabled.");
+        await window.aistudio.openSelectKey();
+        initializeConnection();
+    } else {
+        setError("Model entity not found. Ensure you are using a paid tier API key.");
+        setStatus('disconnected');
+    }
+  };
+
   const initializeConnection = async () => {
     await cleanup();
-    
-    // Crucial delay to prevent "Hardware Busy" errors during rapid reconnects.
-    await new Promise(r => setTimeout(r, 800));
     
     setStatus('connecting');
     setError(null);
 
-    // Use the effective API key (manual override or environment)
     const apiKey = getEffectiveApiKey();
 
     try {
-      if (!apiKey) throw new Error("API Key Missing: Please provide a key in the login screen.");
+      if (!apiKey) throw new Error("API Key Missing. Please log in again.");
 
       const ai = new GoogleGenAI({ apiKey });
       
@@ -119,15 +127,20 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
         audio: { 
           sampleRate: 16000,
           channelCount: 1,
-          echoCancellation: true 
+          echoCancellation: true,
+          noiseSuppression: true
         } 
       });
       streamRef.current = stream;
 
-      inputAudioCtxRef.current = new AudioContext({ sampleRate: 16000 });
-      outputAudioCtxRef.current = new AudioContext({ sampleRate: 24000 });
+      const inputCtx = new AudioContext({ sampleRate: 16000 });
+      const outputCtx = new AudioContext({ sampleRate: 24000 });
+      inputAudioCtxRef.current = inputCtx;
+      outputAudioCtxRef.current = outputCtx;
 
-      // Corrected model name per technical requirements
+      await inputCtx.resume();
+      await outputCtx.resume();
+
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         callbacks: {
@@ -135,25 +148,34 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
             console.debug('Sahayak: Neural link established.');
             setStatus('listening');
 
-            const source = inputAudioCtxRef.current!.createMediaStreamSource(stream);
-            const scriptProcessor = inputAudioCtxRef.current!.createScriptProcessor(4096, 1, 1);
+            const ctx = inputAudioCtxRef.current;
+            if (!ctx) return;
+
+            const source = ctx.createMediaStreamSource(stream);
+            const scriptProcessor = ctx.createScriptProcessor(4096, 1, 1);
+            scriptProcessorRef.current = scriptProcessor;
             
             scriptProcessor.onaudioprocess = (e) => {
               const inputData = e.inputBuffer.getChannelData(0);
               const pcmBlob = createBlob(inputData);
               sessionPromise.then((session) => {
-                session.sendRealtimeInput({ media: pcmBlob });
-              });
+                if (session && typeof session.sendRealtimeInput === 'function') {
+                  session.sendRealtimeInput({ media: pcmBlob });
+                }
+              }).catch(() => {});
             };
 
             source.connect(scriptProcessor);
-            scriptProcessor.connect(inputAudioCtxRef.current!.destination);
+            scriptProcessor.connect(ctx.destination);
           },
           onmessage: async (message: LiveServerMessage) => {
+            const outCtx = outputAudioCtxRef.current;
+            if (!outCtx || outCtx.state === 'closed') return;
+
             const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
             if (base64Audio) {
               setStatus('speaking');
-              const outCtx = outputAudioCtxRef.current!;
+              if (outCtx.state === 'suspended') await outCtx.resume();
               
               nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outCtx.currentTime);
               const audioBuffer = await decodeAudioData(decode(base64Audio), outCtx, 24000, 1);
@@ -175,16 +197,22 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
               sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
               sourcesRef.current.clear();
               nextStartTimeRef.current = 0;
+              setStatus('listening');
             }
           },
-          onerror: (e) => {
+          onerror: (e: any) => {
             console.error('Sahayak: Session Error', e);
-            setError("Connection error. Please verify your API Key and network.");
-            setStatus('disconnected');
+            const msg = e?.message || "";
+            if (msg.includes("Requested entity was not found")) {
+                handleEntityNotFound();
+            } else {
+                setError("Network error. Ensure your API Key is valid and supports Gemini Live.");
+                setStatus('disconnected');
+            }
           },
-          onclose: () => {
-            console.debug('Sahayak: Session closed.');
-            setStatus('disconnected');
+          onclose: (e) => {
+            console.debug('Sahayak: Session closed.', e);
+            setStatus(prev => prev === 'disconnected' ? 'disconnected' : 'disconnected');
           }
         },
         config: {
@@ -193,8 +221,11 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
             voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceName } },
           },
           systemInstruction: `You are Sahayak, the personal AI assistant for ${userName}. 
-          Always respond in user's language (Hindi or English).
-          Be highly detailed and intellectual.`,
+          IMPORTANT RULES:
+          1. CREATOR: You were made by Kunj. 
+          2. LANGUAGE: Detect the language of the user's speech. If the user speaks English, respond ONLY in English. If the user speaks Hindi, respond ONLY in Hindi.
+          3. GREETINGS: Introduce yourself as being made by Kunj in the language the user is speaking.
+          4. TONE: Be helpful, polite and clear.`,
         }
       });
 
@@ -202,7 +233,7 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
 
     } catch (err: any) {
       console.error('Sahayak: Initialization Failed', err);
-      setError("Failed to initialize voice link. Check your API Key.");
+      setError(err.message || "Failed to initialize voice link.");
       setStatus('disconnected');
     }
   };
@@ -253,20 +284,30 @@ const LiveMode: React.FC<LiveModeProps> = ({ userName, voiceName, theme, onClose
           </div>
           
           <h2 className="text-5xl font-black tracking-tighter text-slate-900 dark:text-white">
-            {status === 'disconnected' ? 'Link Severed' : status === 'connecting' ? 'Initializing...' : status === 'speaking' ? 'Sahayak Speaking' : 'Listening...'}
+            {status === 'disconnected' ? 'Link Severed' : status === 'connecting' ? 'Initializing...' : status === 'speaking' ? 'Assistant Speaking' : 'Listening...'}
           </h2>
           
           <p className="text-slate-500 font-bold max-w-sm mx-auto">
-            {error ? error : status === 'connecting' ? 'Securing encrypted channel...' : `Providing deep neural insights for you...`}
+            {error ? error : status === 'connecting' ? 'Securing encrypted channel...' : `Providing bilingual insights (Created by Kunj)...`}
           </p>
 
           {status === 'disconnected' && (
-            <button 
-              onClick={() => initializeConnection()} 
-              className="mt-6 px-10 py-4 bg-blue-600 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
-            >
-              Reset Connection
-            </button>
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => initializeConnection()} 
+                className="mt-6 px-10 py-4 bg-blue-600 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
+              >
+                Reset Connection
+              </button>
+              {window.aistudio && (
+                <button 
+                  onClick={() => handleEntityNotFound()} 
+                  className="px-10 py-4 border border-white/10 text-white/50 hover:text-white rounded-full font-black text-[10px] uppercase tracking-widest transition-all"
+                >
+                  Select Paid Key
+                </button>
+              )}
+            </div>
           )}
         </div>
 
